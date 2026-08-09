@@ -1,6 +1,5 @@
-﻿import { useEffect, useMemo, useState } from "react"
-
-const API = "http://127.0.0.1:8000"
+import { useEffect, useMemo, useState } from "react"
+const API = import.meta.env.VITE_API_URL || "https://fuelflow-mavn.onrender.com"
 
 const money = (value) =>
   `₹${Number(value || 0).toLocaleString("en-IN", {
