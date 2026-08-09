@@ -1,0 +1,16 @@
+﻿services:
+  - type: web
+    name: fuelflow-api
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    preDeployCommand: python scripts/migrate.py
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: SEED_DEMO_DATA
+        value: "false"
+      - key: PYTHON_VERSION
+        value: "3.13.5"
