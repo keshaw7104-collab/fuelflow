@@ -35,6 +35,8 @@ const normalise = (p) => ({
 })
 
 function SalesChart({ rows }) {
+  const [hoveredIndex, setHoveredIndex] = useState(null)
+
   const data = useMemo(() => {
     const grouped = {}
 
@@ -92,19 +94,96 @@ function SalesChart({ rows }) {
         <span>₹0</span>
       </div>
 
-      <svg
-        className="line-chart"
-        viewBox="0 0 100 100"
-        preserveAspectRatio="none"
+      <div style={{ position: "relative", flex: 1, minWidth: 0 }}>
+        <svg
+          className="line-chart"
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+          onMouseLeave={() => setHoveredIndex(null)}
+        >
+          <polyline
+            points={points}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            vectorEffect="non-scaling-stroke"
+          />
+          {data.map((item, index) => {
+            const x =
+              data.length === 1
+                ? 50
+                : (index / (data.length - 1)) * 100
+            const y = 92 - (item.amount / max) * 78
+
+            return (
+              <circle
+                key={item.date}
+                cx={x}
+                cy={y}
+                r="2.2"
+                fill="currentColor"
+                stroke="white"
+                strokeWidth="1"
+                vectorEffect="non-scaling-stroke"
+                style={{ cursor: "pointer" }}
+                onMouseEnter={() => setHoveredIndex(index)}
+              />
+            )
+          })}
+        </svg>
+
+        {hoveredIndex !== null && data[hoveredIndex] && (
+          <div
+            style={{
+              position: "absolute",
+              left: `${
+                data.length === 1
+                  ? 50
+                  : (hoveredIndex / (data.length - 1)) * 100
+              }%`,
+              top: "8px",
+              transform: "translateX(-50%)",
+              zIndex: 5,
+              padding: "8px 10px",
+              background: "#0f172a",
+              color: "white",
+              borderRadius: "8px",
+              fontSize: "12px",
+              lineHeight: 1.35,
+              whiteSpace: "nowrap",
+              pointerEvents: "none",
+              boxShadow: "0 6px 18px rgba(15, 23, 42, 0.18)",
+            }}
+          >
+            <strong>{money(data[hoveredIndex].amount)}</strong>
+            <div>{new Date(data[hoveredIndex].date + "T00:00:00").toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "short" })}</div>
+          </div>
+        )}
+      </div>
+
+      <div
+        style={{
+          marginLeft: "42px",
+          display: "grid",
+          gridTemplateColumns: `repeat(${data.length}, minmax(0, 1fr))`,
+          gap: "4px",
+          marginTop: "6px",
+          color: "#64748b",
+          fontSize: "10px",
+          textAlign: "center",
+        }}
       >
-        <polyline
-          points={points}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          vectorEffect="non-scaling-stroke"
-        />
-      </svg>
+        {data.map((item) => {
+          const date = new Date(item.date + "T00:00:00")
+          return (
+            <span key={`label-${item.date}`}>
+              {data.length <= 7
+                ? date.toLocaleDateString("en-IN", { weekday: "short" })
+                : date.toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+            </span>
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -122,34 +201,48 @@ export default function App() {
   const loadPayments = async () => {
     try {
       setError("")
+      setLoading(true)
 
       const { from, to } = getDates(range)
-
       const params = new URLSearchParams({
         from,
         to,
         limit: "50000",
       })
 
-      const response = await fetch(
-        `${API}/api/payments?${params}`
-      )
-
-      if (!response.ok) {
-        throw new Error(`API ${response.status}`)
+      const request = async (url) => {
+        const response = await fetch(url)
+        if (!response.ok) {
+          throw new Error(`API ${response.status}`)
+        }
+        const data = await response.json()
+        if (!Array.isArray(data.payments)) {
+          throw new Error("Invalid API response")
+        }
+        return data.payments.map(normalise)
       }
 
-      const data = await response.json()
+      try {
+        const payments = await request(`${API}/api/payments?${params}`)
+        setRows(payments)
+      } catch (filteredError) {
+        console.warn("Filtered payment request failed; retrying without date filters.", filteredError)
 
-      if (!Array.isArray(data.payments)) {
-        throw new Error("Invalid API response")
+        const allPayments = await request(`${API}/api/payments?limit=50000`)
+        const startMs = new Date(from).getTime()
+        const endMs = new Date(to).getTime()
+
+        const fallbackPayments = allPayments.filter((payment) => {
+          const time = new Date(payment.transaction_time).getTime()
+          return Number.isNaN(time) || (time >= startMs && time <= endMs)
+        })
+
+        setRows(fallbackPayments)
       }
-
-      setRows(data.payments.map(normalise))
     } catch (err) {
-      console.error(err)
+      console.error("Payment loading failed:", err)
       setError(
-        "Unable to load payment data. Check that FastAPI is running."
+        `Unable to load payment data: ${err?.message || "Unknown error"}`
       )
     } finally {
       setLoading(false)
@@ -701,7 +794,7 @@ export default function App() {
 
           </div>
 
-          <div className="dashboard-grid" id="analytics-section">
+          <div className="dashboard-grid" id="pumps-section">
 
             <div className="panel">
 
