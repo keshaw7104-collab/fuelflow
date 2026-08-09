@@ -1,5 +1,7 @@
 # FuelFlow: Payment Analysis and Business Intelligence
 
+Deployed Dashboard : https://fuelflow-dashboard.onrender.com
+
 FuelFlow is a portfolio-ready petrol-pump payment analysis project built with the requested data-analytics stack:
 
 **Python | Pandas | NumPy | SQL | Excel | Power BI | PostgreSQL | Render**
